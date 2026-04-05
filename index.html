@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCSA 共識營 - K-pop 抽籤系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --kpop-dark: #050208;
+            --kpop-pink: #FF007A;
+            --kpop-cyan: #00F0FF;
+            --kpop-purple: #8A2BE2;
+            --kpop-yellow: #FFFF00;
+            --glass-bg: rgba(255, 255, 255, 0.02);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            background-color: var(--kpop-dark);
+            color: white;
+            font-family: 'Montserrat', 'Noto Sans TC', sans-serif;
+            overflow: hidden;
+            height: 100dvh;
+            margin: 0;
+        }
+
+        /* Background Effects */
+        .bg-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 90% 90%, rgba(255, 0, 122, 0.1) 0%, transparent 40%);
+            z-index: -2;
+        }
+
+        .light-beam {
+            position: fixed;
+            top: -100%;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
+            animation: beam-move 8s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes beam-move {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(200%); opacity: 0; }
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .neon-border-pink { border-color: var(--kpop-pink); box-shadow: 0 0 10px var(--kpop-pink); }
+        .neon-border-cyan { border-color: var(--kpop-cyan); box-shadow: 0 0 10px var(--kpop-cyan); }
+
+        .neon-text-pink { color: var(--kpop-pink); text-shadow: 0 0 8px var(--kpop-pink); }
+        .neon-text-cyan { color: var(--kpop-cyan); text-shadow: 0 0 8px var(--kpop-cyan); }
+
+        .btn-kpop {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 900;
+        }
+
+        .btn-kpop:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .btn-kpop:active {
+            transform: scale(0.95);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* 3D Sphere Container */
+        #sphere-viewport {
+            perspective: 1000px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #sphere-content {
+            position: relative;
+            transform-style: preserve-3d;
+            width: 0;
+            height: 0;
+        }
+
+        .sphere-item {
+            position: absolute;
+            white-space: nowrap;
+            transform-origin: center;
+            transition: color 0.2s, text-shadow 0.2s;
+            font-weight: bold;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .sphere-item.highlight {
+            color: var(--kpop-cyan) !important;
+            text-shadow: 0 0 15px var(--kpop-cyan);
+            font-size: 1.5em;
+            z-index: 1000;
+        }
+
+        /* Layout */
+        .main-layout {
+            display: flex;
+            height: 100dvh;
+            width: 100vw;
+        }
+
+        .control-panel {
+            width: 380px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            padding: 2.5rem 1.5rem;
+            z-index: 10;
+            background: rgba(13, 5, 20, 0.4);
+        }
+
+        .display-panel {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout { flex-direction: column; }
+            .control-panel { width: 100%; height: 45vh; padding: 1rem; }
+            .display-panel { width: 100%; height: 55vh; }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .animate-pulse-fast {
+            animation: pulse 0.2s infinite;
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            pointer-events: none;
+            z-index: 9999;
+            border-radius: 2px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            background: rgba(13, 5, 20, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .prize-gradient {
+            background: linear-gradient(45deg, var(--kpop-pink), var(--kpop-purple), var(--kpop-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <!-- Light Beams -->
+    <div class="light-beam" style="left: 10%; animation-delay: 0s;"></div>
+    <div class="light-beam" style="left: 30%; animation-delay: 2s;"></div>
+    <div class="light-beam" style="left: 50%; animation-delay: 4s;"></div>
+    <div class="light-beam" style="left: 70%; animation-delay: 1s;"></div>
+    <div class="light-beam" style="left: 90%; animation-delay: 3s;"></div>
+
+    <div class="main-layout">
+        <!-- Control Panel -->
+        <aside class="control-panel glass border-r border-white/5">
+            <header class="mb-10 text-center">
+                <div class="inline-block">
+                    <h1 class="text-4xl font-black tracking-tight leading-none mb-1" style="text-shadow: 0 0 20px rgba(138, 43, 226, 0.8);">
+                        <span style="color: #8A2BE2;">CCSA</span><br>
+                        <span style="color: #FF007A;">共識營</span>
+                    </h1>
+                    <p class="text-[10px] tracking-[0.3em] opacity-80 font-bold uppercase text-white">LUCKY DRAW</p>
+                </div>
+            </header>
+
+            <div class="space-y-6">
+                <!-- Name List -->
+                <section>
+                    <div class="flex justify-between items-end mb-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-[#FF007A]">匯入抽籤名單 (每行一個)</label>
+                    </div>
+                    <textarea id="names-input" 
+                        class="w-full h-56 bg-black/60 border-2 border-[#8A2BE2]/40 rounded-xl p-3 text-sm focus:outline-none focus:border-[#FF007A] transition-colors resize-none text-white font-medium"
+                        placeholder="請輸入名單..."></textarea>
+                    <div class="flex justify-end mt-1">
+                        <span id="name-count" class="text-xs font-bold text-[#00F0FF]">目前人數: 0</span>
+                    </div>
+                </section>
+
+                <div class="flex flex-col gap-4">
+                    <button id="update-btn" class="btn-kpop border-2 border-[#00F0FF] text-[#00F0FF] py-2 rounded-lg text-xs font-bold hover:bg-[#00F0FF]/10">
+                        更新 3D 圓球
+                    </button>
+                </div>
+
+                <!-- Settings -->
+                <section class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-2 text-[#FF007A] uppercase">每次抽出人數</label>
+                        <input type="number" id="winner-count" value="1" min="1"
+                            class="w-full bg-black/60 border-2 border-[#8A2BE2]/40 rounded-xl px-4 py-3 text-center text-lg font-black focus:outline-none focus:border-[#FF007A]">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-2 text-[#FF007A] uppercase">設定獎項名稱</label>
+                        <input type="text" id="prize-name" value="特獎"
+                            class="w-full bg-black/60 border-2 border-[#8A2BE2]/40 rounded-xl px-4 py-3 text-center text-lg font-black focus:outline-none focus:border-[#FF007A]">
+                    </div>
+                </section>
+
+                <!-- Actions -->
+                <div class="pt-2">
+                    <button id="start-btn" class="w-full btn-kpop bg-gradient-to-r from-[#8A2BE2] via-[#FF007A] to-[#FF007A] py-5 rounded-2xl text-2xl font-black italic shadow-[0_0_30px_rgba(255,0,122,0.4)] hover:shadow-[0_0_50px_rgba(255,0,122,0.6)] text-white">
+                        開始抽籤 !
+                    </button>
+                </div>
+
+                <!-- History -->
+                <section class="pt-6">
+                    <h2 class="text-xs font-bold uppercase tracking-wider mb-4 text-[#FF007A]">得獎紀錄</h2>
+                    <div id="history-list" class="space-y-3 max-h-48 overflow-y-auto pr-2">
+                        <p class="text-[10px] opacity-40 italic">尚無紀錄</p>
+                    </div>
+                </section>
+            </div>
+        </aside>
+
+        <!-- Display Panel -->
+        <main class="display-panel">
+            <div id="sphere-viewport">
+                <div id="sphere-content"></div>
+            </div>
+            
+            <!-- Countdown Overlay -->
+            <div id="countdown-display" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
+                <span class="text-9xl font-black prize-gradient">7</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
+        <div class="glass neon-border-pink p-12 rounded-3xl max-w-lg w-full mx-4 text-center transform scale-90 transition-transform duration-500">
+            <h3 class="text-xl font-bold opacity-60 uppercase tracking-widest mb-2">Congratulations</h3>
+            <h2 id="modal-prize-name" class="text-5xl font-black italic mb-8 prize-gradient">獎項名稱</h2>
+            
+            <div id="modal-winners" class="flex flex-wrap justify-center gap-4 mb-10">
+                <!-- Winners injected here -->
+            </div>
+
+            <button id="close-modal" class="btn-kpop bg-white text-black px-12 py-4 rounded-full font-black hover:bg-cyan-400 hover:text-white">
+                繼續抽籤
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const state = {
+            names: [],
+            history: [],
+            isDrawing: false,
+            rotation: { x: 0, y: 0 },
+            autoRotation: { x: 0.005, y: 0.008 },
+            mouseRotation: { x: 0, y: 0 },
+            radius: 250,
+            items: []
+        };
+
+        const elements = {
+            namesInput: document.getElementById('names-input'),
+            nameCount: document.getElementById('name-count'),
+            prizeName: document.getElementById('prize-name'),
+            winnerCount: document.getElementById('winner-count'),
+            updateBtn: document.getElementById('update-btn'),
+            startBtn: document.getElementById('start-btn'),
+            historyList: document.getElementById('history-list'),
+            sphereContent: document.getElementById('sphere-content'),
+            sphereViewport: document.getElementById('sphere-viewport'),
+            countdownDisplay: document.getElementById('countdown-display'),
+            resultModal: document.getElementById('result-modal'),
+            modalPrizeName: document.getElementById('modal-prize-name'),
+            modalWinners: document.getElementById('modal-winners'),
+            closeModal: document.getElementById('close-modal')
+        };
+
+        // --- Audio System ---
+        let audioCtx;
+        const sounds = {
+            cheer: new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73056.mp3'),
+            applause: new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3')
+        };
+
+        // Preload sounds
+        Object.values(sounds).forEach(s => {
+            s.load();
+            s.volume = 0.6;
+        });
+
+        async function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // Just to unlock mobile audio
+            playTick(1, 'sine', 0.01);
+        }
+
+        function playTick(frequency = 800, type = 'square', decay = 0.05) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + decay);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + decay);
+        }
+
+        function playWinSound() {
+            // Bass Drop & Arpeggio via Web Audio API
+            if (audioCtx) {
+                const bass = audioCtx.createOscillator();
+                const bassGain = audioCtx.createGain();
+                bass.type = 'sine';
+                bass.frequency.setValueAtTime(150, audioCtx.currentTime);
+                bass.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 1.5);
+                bassGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                bassGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+                bass.connect(bassGain);
+                bassGain.connect(audioCtx.destination);
+                bass.start();
+                bass.stop(audioCtx.currentTime + 1.5);
+
+                const freqs = [440, 554.37, 659.25, 880];
+                freqs.forEach((f, i) => {
+                    setTimeout(() => {
+                        const osc = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(f, audioCtx.currentTime);
+                        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                        osc.connect(g);
+                        g.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.5);
+                    }, i * 100);
+                });
+            }
+
+            // Play external sounds via HTMLAudioElement (more reliable)
+            sounds.cheer.currentTime = 0;
+            sounds.cheer.play().catch(e => console.warn('Cheer play failed', e));
+            
+            setTimeout(() => {
+                sounds.applause.currentTime = 0;
+                sounds.applause.play().catch(e => console.warn('Applause play failed', e));
+            }, 500);
+        }
+
+        // --- Visual Effects ---
+        function createConfetti() {
+            const colors = ['#FF007A', '#00F0FF', '#FFFF00', '#8A2BE2', '#FFFFFF'];
+            const count = 200; // Increased count
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+
+            for (let i = 0; i < count; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti';
+                el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                el.style.boxShadow = `0 0 15px ${el.style.backgroundColor}`;
+                el.style.left = centerX + 'px';
+                el.style.top = centerY + 'px';
+                document.body.appendChild(el);
+
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = 300 + Math.random() * 800;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity - 300;
+                const tr = Math.random() * 1440;
+
+                el.animate([
+                    { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0) rotate(${tr}deg)`, opacity: 0 }
+                ], {
+                    duration: 1500 + Math.random() * 2000,
+                    easing: 'cubic-bezier(0.1, 0.8, 0.3, 1)',
+                    fill: 'forwards'
+                }).onfinish = () => el.remove();
+            }
+        }
+
+        // --- 3D Sphere Logic ---
+        function updateRadius() {
+            const width = elements.sphereViewport.clientWidth;
+            const height = elements.sphereViewport.clientHeight;
+            const minDim = Math.min(width, height);
+            state.radius = minDim * 0.4;
+        }
+
+        function createSphere() {
+            state.names = elements.namesInput.value.split('\n').map(n => n.trim()).filter(n => n !== '');
+            elements.nameCount.textContent = `人數: ${state.names.length}`;
+            
+            elements.sphereContent.innerHTML = '';
+            state.items = [];
+
+            const count = state.names.length;
+            if (count === 0) return;
+
+            // Fibonacci Sphere Algorithm
+            const phi = Math.PI * (3 - Math.sqrt(5)); // golden angle
+
+            for (let i = 0; i < count; i++) {
+                const y = 1 - (i / (count - 1)) * 2; // y goes from 1 to -1
+                const radiusAtY = Math.sqrt(1 - y * y); // radius at y
+                const theta = phi * i; // golden angle increment
+
+                const x = Math.cos(theta) * radiusAtY;
+                const z = Math.sin(theta) * radiusAtY;
+
+                const el = document.createElement('div');
+                el.className = 'sphere-item';
+                el.textContent = state.names[i];
+                
+                // Randomly pick from image colors
+                const colors = ['#00F0FF', '#FF007A', '#FFFF00', '#8A2BE2', '#FFFFFF'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                el.style.color = color;
+                el.style.textShadow = `0 0 10px ${color}88`;
+                el.style.fontSize = `${18 + Math.random() * 8}px`;
+                
+                elements.sphereContent.appendChild(el);
+                state.items.push({ el, x, y, z });
+            }
+            renderSphere();
+        }
+
+        function renderSphere() {
+            const rx = state.rotation.x + state.mouseRotation.x;
+            const ry = state.rotation.y + state.mouseRotation.y;
+
+            const cosX = Math.cos(rx);
+            const sinX = Math.sin(rx);
+            const cosY = Math.cos(ry);
+            const sinY = Math.sin(ry);
+
+            state.items.forEach(item => {
+                // Rotate Y
+                let x1 = item.x * cosY - item.z * sinY;
+                let z1 = item.z * cosY + item.x * sinY;
+
+                // Rotate X
+                let y1 = item.y * cosX - z1 * sinX;
+                let z2 = z1 * cosX + item.y * sinX;
+
+                const scale = (z2 + 2) / 3; // perspective
+                const opacity = (z2 + 1.5) / 2.5;
+                
+                const tx = x1 * state.radius;
+                const ty = y1 * state.radius;
+                const tz = z2 * state.radius;
+
+                item.el.style.transform = `translate3d(${tx}px, ${ty}px, ${tz}px) scale(${scale})`;
+                item.el.style.opacity = opacity;
+                item.el.style.zIndex = Math.round(z2 * 1000);
+            });
+        }
+
+        function animate() {
+            if (!state.isDrawing) {
+                state.rotation.x += state.autoRotation.x;
+                state.rotation.y += state.autoRotation.y;
+            }
+            renderSphere();
+            requestAnimationFrame(animate);
+        }
+
+        // --- Drawing Logic ---
+        async function startDraw() {
+            if (state.isDrawing) return;
+            
+            const winnersToDraw = parseInt(elements.winnerCount.value);
+            if (isNaN(winnersToDraw) || winnersToDraw <= 0) {
+                alert('請輸入有效的抽出人數');
+                return;
+            }
+            if (state.names.length < winnersToDraw) {
+                alert('名單人數不足');
+                return;
+            }
+
+            await initAudio();
+            state.isDrawing = true;
+            elements.startBtn.disabled = true;
+            elements.startBtn.classList.add('opacity-50');
+            
+            const duration = 7000;
+            const startTime = Date.now();
+            
+            elements.countdownDisplay.classList.remove('opacity-0');
+            const countdownSpan = elements.countdownDisplay.querySelector('span');
+
+            let lastTickTime = 0;
+            const drawInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+                
+                if (progress >= 1) {
+                    clearInterval(drawInterval);
+                    finishDraw();
+                    return;
+                }
+
+                // Speed up rotation
+                const speedMult = 1 + progress * 10;
+                state.rotation.x += state.autoRotation.x * speedMult;
+                state.rotation.y += state.autoRotation.y * speedMult;
+
+                // Countdown text
+                const remaining = Math.ceil((duration - elapsed) / 1000);
+                countdownSpan.textContent = remaining;
+
+                // Audio Tick & Visual Highlight
+                const tickRate = Math.max(50, 500 - progress * 480);
+                if (elapsed - lastTickTime > tickRate) {
+                    lastTickTime = elapsed;
+                    playTick(400 + progress * 1000, 'square', 0.03);
+                    
+                    // Random highlight
+                    state.items.forEach(i => i.el.classList.remove('highlight'));
+                    const randIdx = Math.floor(Math.random() * state.items.length);
+                    if (state.items[randIdx]) {
+                        state.items[randIdx].el.classList.add('highlight');
+                    }
+                }
+
+            }, 16);
+        }
+
+        function finishDraw() {
+            const winnersToDraw = parseInt(elements.winnerCount.value);
+            const prize = elements.prizeName.value;
+            
+            // Randomly pick winners
+            const shuffled = [...state.names].sort(() => 0.5 - Math.random());
+            const winners = shuffled.slice(0, winnersToDraw);
+
+            // Update State & UI
+            state.names = state.names.filter(n => !winners.includes(n));
+            elements.namesInput.value = state.names.join('\n');
+            elements.nameCount.textContent = `人數: ${state.names.length}`;
+
+            // Add to History
+            const historyItem = {
+                prize,
+                winners,
+                time: new Date().toLocaleTimeString()
+            };
+            state.history.unshift(historyItem);
+            updateHistoryUI();
+
+            // Show Result
+            showResult(prize, winners);
+            playWinSound();
+
+            // Reset Drawing State
+            state.isDrawing = false;
+            elements.startBtn.disabled = false;
+            elements.startBtn.classList.remove('opacity-50');
+            elements.countdownDisplay.classList.add('opacity-0');
+            state.items.forEach(i => i.el.classList.remove('highlight'));
+            
+            // Refresh Sphere to reflect removed names
+            createSphere();
+        }
+
+        function updateHistoryUI() {
+            if (state.history.length === 0) {
+                elements.historyList.innerHTML = '<p class="text-xs opacity-40 text-center py-4 italic">尚無紀錄</p>';
+                return;
+            }
+
+            elements.historyList.innerHTML = state.history.map(item => `
+                <div class="glass p-3 rounded-xl border border-white/5 text-xs">
+                    <div class="flex justify-between mb-1">
+                        <span class="font-bold neon-text-cyan">${item.prize}</span>
+                        <span class="opacity-40">${item.time}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        ${item.winners.map(w => `<span class="bg-white/10 px-2 py-0.5 rounded">${w}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showResult(prize, winners) {
+            elements.modalPrizeName.textContent = prize;
+            elements.modalWinners.innerHTML = winners.map(w => `
+                <div class="bg-white/10 border border-white/20 px-6 py-3 rounded-2xl text-2xl font-black neon-text-cyan">
+                    ${w}
+                </div>
+            `).join('');
+            
+            elements.resultModal.classList.remove('hidden');
+            setTimeout(() => {
+                elements.resultModal.querySelector('div').classList.remove('scale-90');
+            }, 10);
+
+            // Trigger Confetti
+            createConfetti();
+        }
+
+        // --- Event Listeners ---
+        elements.updateBtn.addEventListener('click', createSphere);
+        elements.startBtn.addEventListener('click', startDraw);
+        
+        elements.closeModal.addEventListener('click', () => {
+            elements.resultModal.querySelector('div').classList.add('scale-90');
+            setTimeout(() => {
+                elements.resultModal.classList.add('hidden');
+            }, 300);
+        });
+
+        window.addEventListener('resize', () => {
+            updateRadius();
+            renderSphere();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            const cx = window.innerWidth / 2;
+            const cy = window.innerHeight / 2;
+            state.mouseRotation.y = (e.clientX - cx) / cx * 0.2;
+            state.mouseRotation.x = (cy - e.clientY) / cy * 0.2;
+        });
+
+        // --- Initialization ---
+        updateRadius();
+        createSphere();
+        animate();
+
+        // Initial names for demo
+        elements.namesInput.value = "林宥嘉\n青峰\n徐佳瑩\n王小明\n李大華\n張小芬\n陳建國\n林美麗\n黃俊傑\n周杰倫\n蔡依林\n林俊傑\n張惠妹\n田馥甄\n蕭敬騰\n陳奕迅\n五月天阿信\n楊丞琳\n王心凌\n鄧紫棋";
+        createSphere();
+
+    </script>
+</body>
+</html>
